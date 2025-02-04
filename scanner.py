@@ -7,14 +7,15 @@ def signal_handler(sig, frame):
     sys.exit(0)
 signal.signal(signal.SIGINT, signal_handler)
 
-def ping(target):
+def ping(target, ports):
     os.system("clear")
     #Check if the target machine is online using an ICMP ping.
     res, unans = sr(IP(dst=target)/ICMP(), timeout=3, verbose=0)
     live_ips = {received.src for sent, received in res}
     print("\nScan Results:")
     for ip in live_ips:
-            print(f"{ip} is up")
+            print(f"\033[32m{ip} is up\033[0m")
+    scanagain(target, ports)
 
 def scan(target, ports):
     os.system("clear")
@@ -27,11 +28,57 @@ def scan(target, ports):
     print("Scan results:")
     for s,r in res:
         if r[TCP].flags == 0x12:
-            print(f"Port {s[TCP].dport} in {s[IP].dst} is open")
+            print(f"\033[32mPort {s[TCP].dport} in {s[IP].dst} is open\033[0m")
         elif r[TCP].flags == 0x14:
-            print(f"Port {s[TCP].dport} in {s[IP].dst} is closed")
+            print(f"\033[31mPort {s[TCP].dport} in {s[IP].dst} is closed\033[0m")
     for s in unans:
-        print(f"Port {s[TCP].dport} in {s[IP].dst} is closed or filtered.")
+        print(f"\033[31mPort {s[TCP].dport} in {s[IP].dst} is closed or filtered.\033[0m")
+    scanagain(target, ports)
+
+
+def scanack(target, ports):
+    os.system("clear")
+    if type(ports) == list:
+        res,unans = sr(IP(dst=target)/TCP(flags="A", dport=(int(ports[0]),int(ports[1]))), timeout=1, verbose=0)
+    else:
+        res,unans = sr(IP(dst=target)/TCP(flags="A", dport=(int(ports))), timeout=1, verbose=0)
+    print("Scan results:")
+    for s,r in res:
+        if s[TCP].dport == r[TCP].sport:
+            print(f"\033[33mPort {s[TCP].dport} in {s[IP].dst} is unfiltered\033[0m")
+    for s in unans:
+        print(f"\033[31mPort {s[TCP].dport} in {s[IP].dst} is closed or filtered.\033[0m")
+    scanagain(target, ports)
+
+def scanxmas(target, ports):
+    os.system("clear")
+    if type(ports) == list:
+        res,unans = sr(IP(dst=target)/TCP(flags="FPU", dport=(int(ports[0]),int(ports[1]))), timeout=1, verbose=0)
+    else:
+        res,unans = sr(IP(dst=target)/TCP(flags="FPU", dport=(int(ports))), timeout=1, verbose=0)
+    print("Scan results:")
+    for s,r in res:
+        if s[TCP].dport == r[TCP].sport:
+            print(f"\033[31mPort {s[TCP].dport} in {s[IP].dst} is closed\033[0m")
+    for s in unans:
+        print(f"\033[33mPort {s[TCP].dport} in {s[IP].dst} is open or unfiltered.\033[0m")
+    scanagain(target, ports)
+
+def scanagain(target, ports):
+    scanquestion = input("Scan again? Y/N\n> ")
+    match scanquestion:
+        case "Y":
+            menu(target, ports)
+        case "y":
+            menu(target, ports)
+        case "N":
+            exit()
+        case "n":
+            exit()
+        case _:
+            print("Please type Y or N")
+            scanagain(target, ports)
+
 
 def changeip(target, ports):
     os.system("clear")
@@ -47,13 +94,17 @@ def changeip(target, ports):
 
 def changescan(target, ports):
     os.system("clear")
-    print("What kind of scan do you want to perform?\n1. ICMP Ping  2. TCP SYN\n")
+    print("What kind of scan do you want to perform?\n1. ICMP Ping  2. TCP SYN  3. TCP ACK 4. XMAS scan\n")
     scantype = input("> ")
     match scantype:
         case "1":
-            ping(target)
+            ping(target, ports)
         case "2":
             scan(target, ports)
+        case "3":
+            scanack(target, ports)
+        case "4":
+            scanxmas(target, ports)
         case _:
             print("\nPlease write only the number")
             changescan()
